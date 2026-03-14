@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>STATS – Joueur</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
+
+  <!-- PWA / iOS -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+  <meta name="apple-mobile-web-app-title" content="Stats Basket" />
+  <meta name="theme-color" content="#080d18" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;600;700;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <!-- React 18 via CDN (UMD, pas de build nécessaire) -->
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+
+  <style>
+    :root {
+      --bg:    #080d18;
+      --surf:  #0f1829;
+      --surf2: #162035;
+      --bord:  rgba(255,255,255,0.08);
+      --text:  #f0f4ff;
+      --muted: #5a6a88;
+      --acc:   #f97316;
+      --c2:    #e07b00;
+      --c3:    #7c3aed;
+      --cft:   #0284c7;
+      --creb:  #16a34a;
+      --cast:  #db2777;
+      --cdef:  #0d9488;
+      --cmisc: #b45309;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body, #root {
+      width: 100%;
+      height: 100%;
+      /* iOS PWA : on bloque absolument tout scroll */
+      overflow: hidden;
+      position: fixed;
+      top: 0; left: 0;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Barlow', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    /* Layout racine */
+    .app {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100%;
+      /* Encoches iPad */
+      padding-top: env(safe-area-inset-top, 0px);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      padding-left: env(safe-area-inset-left, 0px);
+      padding-right: env(safe-area-inset-right, 0px);
+    }
+
+    /* ── TOPBAR ── */
+    .topbar {
+      flex: 0 0 auto;
+      background: var(--surf);
+      border-bottom: 1px solid var(--bord);
+      padding: 6px 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .logo {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 900;
+      font-size: 1rem;
+      letter-spacing: .07em;
+      color: var(--acc);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .topbar-fields { display: flex; gap: 5px; flex: 1; align-items: center; }
+    .topbar input {
+      background: rgba(255,255,255,.06);
+      border: 1px solid var(--bord);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: 'Barlow', sans-serif;
+      font-size: 0.74rem;
+      padding: 5px 8px;
+      outline: none;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    .topbar input:focus { border-color: var(--acc); }
+    .inp-player { width: 130px; font-weight: 600; }
+    .inp-teams  { width: 150px; }
+    .inp-date   { width: 124px; }
+    .inp-score  { width: 82px; }
+
+    .timer-zone { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+    .t-select {
+      background: rgba(255,255,255,.07);
+      border: 1px solid var(--bord);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 4px 8px;
+      outline: none;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    .t-digits {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 1.2rem;
+      font-weight: 700;
+      background: rgba(255,255,255,.07);
+      border: 1px solid var(--bord);
+      border-radius: 6px;
+      padding: 3px 10px;
+    }
+    .t-btn {
+      border-radius: 6px;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 0.73rem;
+      padding: 5px 11px;
+      border: none;
+      cursor: pointer;
+    }
+    .t-btn-play         { background: rgba(34,197,94,.18);  color: #4ade80; border: 1px solid rgba(34,197,94,.3); }
+    .t-btn-play.running { background: rgba(239,68,68,.18);  color: #f87171; border: 1px solid rgba(239,68,68,.3); }
+    .t-btn-rst          { background: rgba(255,255,255,.06); color: var(--muted); border: 1px solid var(--bord); }
+
+    /* ── SCORE STRIP ── */
+    .score-strip {
+      flex: 0 0 auto;
+      background: linear-gradient(130deg, #f97316, #b45309);
+      padding: 5px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .strip-left { display: flex; align-items: baseline; gap: 8px; }
+    .strip-lbl  { font-family: 'Barlow Condensed', sans-serif; font-size: .66rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; opacity: .8; }
+    .strip-pts  { font-family: 'Barlow Condensed', sans-serif; font-size: 2rem; font-weight: 900; line-height: 1; }
+    .strip-name { font-family: 'Barlow Condensed', sans-serif; font-size: .73rem; opacity: .7; align-self: center; }
+    .strip-minis { display: flex; gap: 10px; }
+    .strip-mini  { text-align: center; }
+    .sm-v { font-family: 'Barlow Condensed', sans-serif; font-size: 1rem; font-weight: 900; line-height: 1; }
+    .sm-l { font-family: 'Barlow Condensed', sans-serif; font-size: .58rem; opacity: .7; letter-spacing: .05em; text-transform: uppercase; }
+
+    /* ── SCREENS ── */
+    .screens { flex: 1 1 0; min-height: 0; position: relative; overflow: hidden; }
+    .screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      transition: transform 160ms cubic-bezier(.4,0,.2,1), opacity 160ms cubic-bezier(.4,0,.2,1);
+      will-change: transform;
+    }
+    .screen-active    { transform: translateX(0);    opacity: 1; pointer-events: auto; }
+    .screen-hidden    { transform: translateX(100%); opacity: 0; pointer-events: none; }
+    .screen-slideout  { transform: translateX(-6%);  opacity: 0; pointer-events: none; }
+
+    /* ── HOME – grille 7 tuiles ── */
+    .home-grid {
+      flex: 1;
+      padding: 8px;
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 7px;
+    }
+    .tile {
+      background: var(--surf);
+      border: 1px solid var(--bord);
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      position: relative;
+      overflow: hidden;
+      cursor: pointer;
+      /* React gère onTouchEnd/onClick, pas besoin de hacks */
+      -webkit-tap-highlight-color: transparent;
+      transition: transform 100ms;
+    }
+    .tile:active { transform: scale(0.95); }
+    .tile-stripe {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      border-radius: 16px 16px 0 0;
+    }
+    .tile-icon {
+      width: 50px; height: 50px;
+      border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .tile-icon svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .tile-lbl  { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: .82rem; letter-spacing: .06em; text-transform: uppercase; text-align: center; }
+    .tile-val  { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 1.85rem; line-height: 1; }
+    .tile-sub  { font-family: 'Barlow Condensed', sans-serif; font-size: .67rem; color: var(--muted); text-align: center; }
+
+    /* ── DETAIL – nav bar ── */
+    .detail-nav {
+      flex: 0 0 auto;
+      background: var(--surf);
+      border-bottom: 1px solid var(--bord);
+      display: flex;
+      align-items: stretch;
+    }
+    .nav-back {
+      flex-shrink: 0;
+      background: none;
+      border: none;
+      border-right: 1px solid var(--bord);
+      color: var(--acc);
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: .82rem;
+      padding: 9px 14px;
+      display: flex; align-items: center; gap: 5px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .nav-back:active { background: rgba(249,115,22,.1); }
+    .nav-cats { display: flex; flex: 1; }
+    .nav-cat {
+      flex: 1;
+      border: none;
+      border-right: 1px solid var(--bord);
+      background: none;
+      color: var(--muted);
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: .74rem;
+      padding: 8px 4px;
+      display: flex; align-items: center; justify-content: center; gap: 4px;
+      position: relative;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 120ms, color 120ms;
+      white-space: nowrap;
+    }
+    .nav-cat:last-child { border-right: none; }
+    .nav-cat svg { width: 13px; height: 13px; }
+    .nav-cat-active::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 2px;
+    }
+
+    /* ── DETAIL – body ── */
+    .detail-body {
+      flex: 1 1 0; min-height: 0;
+      padding: 10px 14px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .det-header { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; }
+    .det-title  { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 1.5rem; letter-spacing: .05em; text-transform: uppercase; }
+    .det-score  { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 2.6rem; line-height: 1; }
+
+    .action-grid { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; gap: 9px; justify-content: center; }
+    .action-row  { display: flex; align-items: center; gap: 8px; }
+    .action-tag  { font-family: 'Barlow Condensed', sans-serif; font-size: .7rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); width: 34px; flex-shrink: 0; text-align: right; }
+
+    .big-btn {
+      flex: 1;
+      min-height: 62px;
+      border-radius: 13px;
+      border: 1px solid rgba(255,255,255,.1);
+      background: var(--surf2);
+      color: var(--text);
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 1rem;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform 80ms, background 100ms;
+    }
+    .big-btn:active { transform: scale(.97); }
+    .big-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+    .big-btn-val { font-family: 'Barlow Condensed', sans-serif; font-size: 1.5rem; font-weight: 900; margin-left: auto; padding-right: 6px; }
+
+    .minus-btn {
+      width: 54px;
+      min-height: 62px;
+      border-radius: 13px;
+      border: 1px solid rgba(255,255,255,.08);
+      background: var(--surf2);
+      color: var(--muted);
+      font-size: 1.6rem;
+      font-weight: 300;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 100ms, color 100ms;
+    }
+    .minus-btn:active { background: rgba(239,68,68,.2); color: #f87171; }
+
+    .gauge-wrap { flex-shrink: 0; display: flex; align-items: center; gap: 8px; }
+    .gauge-bar  { flex: 1; height: 6px; border-radius: 99px; background: rgba(255,255,255,.07); overflow: hidden; }
+    .gauge-fill { height: 100%; border-radius: 99px; transition: width .2s, background .2s; }
+    .gauge-txt  { font-family: 'Barlow Condensed', sans-serif; font-size: .72rem; color: var(--muted); white-space: nowrap; min-width: 100px; text-align: right; }
+
+    /* ── BOTTOMBAR ── */
+    .bottombar {
+      flex: 0 0 auto;
+      background: var(--surf);
+      border-top: 1px solid var(--bord);
+      padding: 6px 12px;
+      display: flex; align-items: center; gap: 7px;
+    }
+    .btn-reset {
+      border: 1px solid rgba(239,68,68,.4);
+      background: transparent;
+      color: #fca5a5;
+      border-radius: 7px;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: .73rem;
+      padding: 6px 12px;
+      white-space: nowrap;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-reset:active { background: rgba(239,68,68,.12); }
+    .btn-exp {
+      border: 1px solid rgba(249,115,22,.35);
+      background: rgba(249,115,22,.08);
+      color: #fed7aa;
+      border-radius: 7px;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: .73rem;
+      padding: 6px 12px;
+      display: flex; align-items: center; gap: 5px;
+      white-space: nowrap;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-exp:active { background: rgba(249,115,22,.2); }
+    .btn-exp svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .hint-bar { margin-left: auto; font-size: .64rem; color: var(--muted); text-align: right; }
+    .hint-bar a { color: var(--acc); text-decoration: none; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script>
+// ─────────────────────────────────────────────────
+// On utilise React en mode UMD (chargé via CDN)
+// Pas de JSX, pas de build — syntaxe React.createElement
+// ─────────────────────────────────────────────────
+const { useState, useEffect, useRef, useCallback } = React;
+const e = React.createElement;
+
+// ── Couleurs par catégorie ──
+const COLORS = {
+  two: 'var(--c2)', three: 'var(--c3)', ft: 'var(--cft)',
+  reb: 'var(--creb)', ast: 'var(--cast)', def: 'var(--cdef)', misc: 'var(--cmisc)'
+};
+const CAT_ORDER = ['two','three','ft','reb','ast','def','misc'];
+
+// ── SVG paths ──
+const Svg = ({ d, path, circle, polyline, line, lines, paths, w=24, h=24 }) =>
+  e('svg', { viewBox:`0 0 ${w} ${h}`, fill:'none', stroke:'currentColor', strokeWidth:2, strokeLinecap:'round', strokeLinejoin:'round', style:{flexShrink:0} },
+    ...(paths||[]).map((p,i) => e('path',{key:i,d:p})),
+    ...(lines||[]).map((l,i) => e('line',{key:i,...l}))
+  );
+
+// Icônes inline simples via SVG string injecté
+function Icon({ name, size=24 }) {
+  const icons = {
+    ball:    '<circle cx="12" cy="12" r="9"/><path d="M9 9a3 3 0 0 1 6 0c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+    arrow:   '<path d="M12 2a10 10 0 1 0 10 10"/><path d="M22 2L12 12"/><path d="M17 2h5v5"/>',
+    hoop:    '<line x1="12" y1="2" x2="12" y2="8"/><path d="M5.2 5.2A7 7 0 0 0 12 19a7 7 0 0 0 6.8-13.8"/><line x1="8" y1="22" x2="16" y2="22"/>',
+    layers:  '<path d="M12 2L2 7l10 5 10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>',
+    people:  '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+    shield:  '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+    warning: '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+    expand:  '<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>',
+    block:   '<circle cx="12" cy="12" r="9"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>',
+    refresh: '<polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.63"/>',
+    check:   '<polyline points="20 6 9 17 4 12"/>',
+    plus:    '<circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>',
+    back:    '<polyline points="15 18 9 12 15 6"/>',
+    copy:    '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+    dl:      '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>',
+    file:    '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>',
+  };
+  return e('svg', {
+    viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', strokeWidth:2,
+    strokeLinecap:'round', strokeLinejoin:'round',
+    style:{width:size, height:size, flexShrink:0},
+    dangerouslySetInnerHTML:{__html: icons[name]||''}
+  });
+}
+
+// ── Définitions des catégories ──
+const CATS = {
+  two:   { label:'2 Points',         icon:'ball',    shooting:true,  attKey:'twoAttempted',   madeKey:'twoMade',   ptsX:2, attLbl:'Tenté',  madeLbl:'Inscrit', rows:[] },
+  three: { label:'3 Points',         icon:'arrow',   shooting:true,  attKey:'threeAttempted', madeKey:'threeMade', ptsX:3, attLbl:'Tenté',  madeLbl:'Inscrit', rows:[] },
+  ft:    { label:'Lancers Francs',   icon:'hoop',    shooting:true,  attKey:'ftAttempted',    madeKey:'ftMade',    ptsX:1, attLbl:'Tenté',  madeLbl:'Réussi',  rows:[] },
+  reb:   { label:'Rebonds',          icon:'layers',  shooting:false, rows:[{key:'reboundsOff',lbl:'Offensif',icon:'expand'},{key:'reboundsDef',lbl:'Défensif',icon:'shield'}], scoreCalc:c=>c.reboundsOff+c.reboundsDef },
+  ast:   { label:'Passes Décisives', icon:'people',  shooting:false, rows:[{key:'assists',    lbl:'Passe décisive',icon:'people'}],                                             scoreCalc:c=>c.assists },
+  def:   { label:'Défense',          icon:'shield',  shooting:false, rows:[{key:'interceptions',lbl:'Interception',icon:'shield'},{key:'blocks',lbl:'Contre',icon:'block'}],   scoreCalc:c=>c.interceptions+c.blocks },
+  misc:  { label:'Divers',           icon:'warning', shooting:false, rows:[{key:'turnovers',  lbl:'Balle perdue',icon:'refresh'},{key:'fouls',  lbl:'Faute',  icon:'warning'}], scoreCalc:c=>c.turnovers+c.fouls },
+};
+
+// ── État initial des compteurs ──
+const INIT_COUNTERS = {
+  twoAttempted:0,twoMade:0,
+  threeAttempted:0,threeMade:0,
+  ftAttempted:0,ftMade:0,
+  reboundsOff:0,reboundsDef:0,
+  assists:0,interceptions:0,blocks:0,
+  turnovers:0,fouls:0
+};
+const Q_KEYS = ['QT1','QT2','QT3','QT4','OT'];
+const initQuarterStats = () => {
+  const qs = {};
+  Q_KEYS.forEach(q => { qs[q] = {...INIT_COUNTERS}; });
+  return qs;
+};
+const initQuarterTimes = () => ({QT1:0,QT2:0,QT3:0,QT4:0,OT:0});
+
+const ATTEMPT_MAP = {twoMade:'twoAttempted',threeMade:'threeAttempted',ftMade:'ftAttempted'};
+
+// ────────────────────────────────────────────────
+//  COMPOSANT PRINCIPAL
+// ────────────────────────────────────────────────
+function App() {
+  const [counters, setCounters] = useState({...INIT_COUNTERS});
+  const [quarterStats, setQuarterStats] = useState(initQuarterStats());
+  const [quarterTimes, setQuarterTimes] = useState(initQuarterTimes());
+  const [currentQ, setCurrentQ] = useState('QT1');
+  const [timerSec, setTimerSec] = useState(0);
+  const [timerRunning, setTimerRunning] = useState(false);
+  const [playerName, setPlayerName] = useState('');
+  const [matchDate, setMatchDate] = useState('');
+  const [matchTeams, setMatchTeams] = useState('');
+  const [matchScore, setMatchScore] = useState('');
+  const [screen, setScreen] = useState('home'); // 'home' | 'detail'
+  const [activeCat, setActiveCat] = useState(null);
+  const [homeState, setHomeState] = useState('active'); // 'active'|'slideout'|'hidden'
+
+  const timerRef = useRef(null);
+  const timerSecRef = useRef(0);
+  const currentQRef = useRef('QT1');
+  const quarterTimesRef = useRef(initQuarterTimes());
+
+  // Sync refs
+  useEffect(() => { timerSecRef.current = timerSec; }, [timerSec]);
+  useEffect(() => { currentQRef.current = currentQ; }, [currentQ]);
+  useEffect(() => { quarterTimesRef.current = quarterTimes; }, [quarterTimes]);
+
+  // ── Timer ──
+  const startTimer = useCallback(() => {
+    if (timerRef.current) return;
+    timerRef.current = setInterval(() => {
+      setTimerSec(s => s + 1);
+    }, 1000);
+    setTimerRunning(true);
+  }, []);
+
+  const pauseTimer = useCallback(() => {
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    setTimerRunning(false);
+  }, []);
+
+  const toggleTimer = useCallback(() => {
+    timerRef.current ? pauseTimer() : startTimer();
+  }, [startTimer, pauseTimer]);
+
+  const resetTimer = useCallback(() => {
+    setTimerSec(0);
+    setQuarterTimes(qt => ({...qt, [currentQRef.current]: 0}));
+  }, []);
+
+  const handleQuarterChange = useCallback((newQ) => {
+    // Sauvegarde le temps du quart actuel
+    setQuarterTimes(qt => ({...qt, [currentQRef.current]: timerSecRef.current}));
+    pauseTimer();
+    setCurrentQ(newQ);
+    setTimerSec(quarterTimesRef.current[newQ] || 0);
+  }, [pauseTimer]);
+
+  // ── Compteurs ──
+  const increment = useCallback((key) => {
+    setCounters(prev => {
+      const next = {...prev};
+      if (ATTEMPT_MAP[key]) {
+        const ak = ATTEMPT_MAP[key];
+        if (next[ak] <= next[key]) next[ak]++;
+      }
+      next[key]++;
+      return next;
+    });
+    setQuarterStats(prev => {
+      const qs = {...prev};
+      const q = {...qs[currentQRef.current]};
+      if (ATTEMPT_MAP[key]) {
+        const ak = ATTEMPT_MAP[key];
+        if ((q[ak]||0) <= (q[key]||0)) q[ak] = (q[ak]||0)+1;
+      }
+      q[key] = (q[key]||0)+1;
+      qs[currentQRef.current] = q;
+      return qs;
+    });
+  }, []);
+
+  const decrement = useCallback((key) => {
+    setCounters(prev => {
+      if (prev[key] <= 0) return prev;
+      return {...prev, [key]: prev[key]-1};
+    });
+    setQuarterStats(prev => {
+      const qs = {...prev};
+      const q = {...qs[currentQRef.current]};
+      if ((q[key]||0) > 0) q[key]--;
+      qs[currentQRef.current] = q;
+      return qs;
+    });
+  }, []);
+
+  // ── Navigation ──
+  const openCat = useCallback((cat) => {
+    setActiveCat(cat);
+    setHomeState('slideout');
+    setTimeout(() => setHomeState('hidden'), 160);
+    setScreen('detail');
+  }, []);
+
+  const goHome = useCallback(() => {
+    setHomeState('active');
+    setScreen('home');
+    setActiveCat(null);
+  }, []);
+
+  const switchCat = useCallback((cat) => {
+    setActiveCat(cat);
+  }, []);
+
+  // ── Reset ──
+  const handleReset = useCallback(() => {
+    if (!window.confirm('Réinitialiser toutes les statistiques du match ?')) return;
+    setCounters({...INIT_COUNTERS});
+    setQuarterStats(initQuarterStats());
+    setQuarterTimes(initQuarterTimes());
+    pauseTimer();
+    setTimerSec(0);
+    goHome();
+  }, [pauseTimer, goHome]);
+
+  // ── Dérivés ──
+  const c = counters;
+  const totalPts = c.twoMade*2 + c.threeMade*3 + c.ftMade;
+  const reb      = c.reboundsOff + c.reboundsDef;
+  const def      = c.interceptions + c.blocks;
+  const misc     = c.turnovers + c.fouls;
+  const pctStr   = (m,a) => a ? Math.round(m/a*100)+'%' : '0%';
+  const fmt      = s => String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+
+  const tileSubs = {
+    two:   c.twoAttempted   ? `${c.twoMade}/${c.twoAttempted} – ${pctStr(c.twoMade,c.twoAttempted)}`     : '0/0 – 0%',
+    three: c.threeAttempted ? `${c.threeMade}/${c.threeAttempted} – ${pctStr(c.threeMade,c.threeAttempted)}` : '0/0 – 0%',
+    ft:    c.ftAttempted    ? `${c.ftMade}/${c.ftAttempted} – ${pctStr(c.ftMade,c.ftAttempted)}`         : '0/0 – 0%',
+    reb:   `OFF ${c.reboundsOff} · DEF ${c.reboundsDef}`,
+    ast:   'décisives',
+    def:   `INT ${c.interceptions} · CTR ${c.blocks}`,
+    misc:  `BP ${c.turnovers} · Fts ${c.fouls}`,
+  };
+  const tileVals = {
+    two:c.twoMade*2, three:c.threeMade*3, ft:c.ftMade,
+    reb, ast:c.assists, def, misc
+  };
+
+  // ── Export ──
+  const qLabel = q => ({QT1:'QT 1',QT2:'QT 2',QT3:'QT 3',QT4:'QT 4',OT:'Prolongation'}[q]||q);
+  const pct    = (m,a) => a ? ((m/a)*100).toFixed(1)+' %' : '';
+
+  const computeStats = () => {
+    const qt = {...quarterTimes, [currentQ]: timerSec};
+    const header = ['Période','MIN','PTS','TR','TT','% total','2 PR','2 PT','% 2P','3 PR','3 PT','% 3P','LFR','LFT','% LF','RO','RD','BP','INT','CTR','F'];
+    const qRows = Q_KEYS.map(k => {
+      const q=quarterStats[k]; const t=qt[k]||0;
+      const pts=(q.twoMade||0)*2+(q.threeMade||0)*3+(q.ftMade||0);
+      const tr=(q.twoMade||0)+(q.threeMade||0), tt=(q.twoAttempted||0)+(q.threeAttempted||0);
+      return [qLabel(k),fmt(t),pts,tr,tt,pct(tr,tt),q.twoMade||0,q.twoAttempted||0,pct(q.twoMade||0,q.twoAttempted||0),q.threeMade||0,q.threeAttempted||0,pct(q.threeMade||0,q.threeAttempted||0),q.ftMade||0,q.ftAttempted||0,pct(q.ftMade||0,q.ftAttempted||0),q.reboundsOff||0,q.reboundsDef||0,q.turnovers||0,q.interceptions||0,q.blocks||0,q.fouls||0];
+    });
+    const T = ['QT1','QT2','QT3','QT4'].reduce((a,k) => {
+      const q=quarterStats[k];
+      return {s:a.s+(qt[k]||0),tm:a.tm+(q.twoMade||0),ta:a.ta+(q.twoAttempted||0),hm:a.hm+(q.threeMade||0),ha:a.ha+(q.threeAttempted||0),fm:a.fm+(q.ftMade||0),fa:a.fa+(q.ftAttempted||0),ro:a.ro+(q.reboundsOff||0),rd:a.rd+(q.reboundsDef||0),bp:a.bp+(q.turnovers||0),int:a.int+(q.interceptions||0),ctr:a.ctr+(q.blocks||0),f:a.f+(q.fouls||0)};
+    },{s:0,tm:0,ta:0,hm:0,ha:0,fm:0,fa:0,ro:0,rd:0,bp:0,int:0,ctr:0,f:0});
+    const trA=T.tm+T.hm, ttA=T.ta+T.ha;
+    const tot=['Total 4 QT',fmt(T.s),T.tm*2+T.hm*3+T.fm,trA,ttA,pct(trA,ttA),T.tm,T.ta,pct(T.tm,T.ta),T.hm,T.ha,pct(T.hm,T.ha),T.fm,T.fa,pct(T.fm,T.fa),T.ro,T.rd,T.bp,T.int,T.ctr,T.f];
+    return {headerRow:header, quarterRows:qRows, totalRow:tot};
+  };
+
+  const buildCsv = () => {
+    const s=computeStats(); const C=21;
+    const pad=r=>{const a=r.slice();while(a.length<C)a.push('');return a;};
+    const leg=[['MIN','Temps sur le terrain'],['PTS','Points'],['TR','Tirs réussis (2+3)'],['TT','Tirs tentés'],['% total','% réussite'],['2 PR','2pts réussis'],['2 PT','2pts tentés'],['% 2P','% 2pts'],['3 PR','3pts réussis'],['3 PT','3pts tentés'],['% 3P','% 3pts'],['LFR','LF réussis'],['LFT','LF tentés'],['% LF','% LF'],['RO','Rebonds off.'],['RD','Rebonds déf.'],['BP','Balles perdues'],['INT','Interceptions'],['CTR','Contres'],['F','Fautes']];
+    const rows=[pad(['Joueur',playerName||'Joueur']),pad(['Date',matchDate]),pad(['Équipes',matchTeams]),pad(['Score final',matchScore]),pad([''])];
+    rows.push(pad(s.headerRow));
+    s.quarterRows.forEach(r=>rows.push(pad(r)));
+    rows.push(pad(s.totalRow),pad(['']),pad(['Légende','']));
+    leg.forEach(l=>rows.push(pad(l)));
+    return '\uFEFF'+rows.map(r=>r.join(';')).join('\r\n')+'\r\n';
+  };
+
+  const esc = s => String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]||c));
+  const buildHtml = () => {
+    const s=computeStats(); const p=playerName||'Joueur';
+    const leg=[['MIN','Temps sur le terrain'],['PTS','Points'],['TR','Tirs réussis (2+3, hors LF)'],['TT','Tirs tentés'],['% total','% réussite'],['2 PR','2pts réussis'],['2 PT','2pts tentés'],['% 2P','% 2pts'],['3 PR','3pts réussis'],['3 PT','3pts tentés'],['% 3P','% 3pts'],['LFR','LF réussis'],['LFT','LF tentés'],['% LF','% LF'],['RO','Rebonds off.'],['RD','Rebonds déf.'],['BP','Balles perdues'],['INT','Interceptions'],['CTR','Contres'],['F','Fautes']];
+    let h=`<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>Stats</title><style>body{font-family:Arial;font-size:11pt}table{border-collapse:collapse;margin:8px 0 12px}th,td{border:1px solid #000;padding:3px 6px;text-align:center}th{background:#f97316;color:#fff}.tr td{font-weight:bold;background:#fee2e2}.pc{font-weight:bold;background:#e5e7eb}.it td{border:none;text-align:left;padding:2px 4px}.lt th{background:#0f172a;color:#fff}</style></head><body>`;
+    h+=`<h2>Statistiques – ${esc(p)}</h2><table class="it"><tr><td>Joueur</td><td>${esc(p)}</td></tr><tr><td>Date</td><td>${esc(matchDate)}</td></tr><tr><td>Équipes</td><td>${esc(matchTeams)}</td></tr><tr><td>Score</td><td>${esc(matchScore)}</td></tr></table><table>`;
+    h+=`<tr>${s.headerRow.map(c=>`<th>${esc(c)}</th>`).join('')}</tr>`;
+    s.quarterRows.forEach(r=>{h+=`<tr>${r.map((c,i)=>`<td${i===0?' class="pc"':''}>${esc(c)}</td>`).join('')}</tr>`;});
+    h+=`<tr class="tr">${s.totalRow.map((c,i)=>`<td${i===0?' class="pc"':''}>${esc(c)}</td>`).join('')}</tr>`;
+    h+=`</table><table class="lt"><tr><th>Abréviation</th><th>Signification</th></tr>`;
+    leg.forEach(([a,d])=>{h+=`<tr><td>${esc(a)}</td><td style="text-align:left">${esc(d)}</td></tr>`;});
+    return h+`</table></body></html>`;
+  };
+
+  const slugify = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\W+/g,'_').replace(/^_+|_+$/g,'');
+  const dlFile = (content,type,name) => {
+    const blob=new Blob([content],{type}), url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download=name;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+  };
+
+  const handleCopy = () => {
+    const csv=buildCsv();
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(csv).then(()=>alert('Stats copiées !')).catch(()=>window.prompt('Copiez :',csv));
+    else window.prompt('Copiez :',csv);
+  };
+
+  // ────────────────────────────────────────────
+  //  RENDER
+  // ────────────────────────────────────────────
+  return e('div', {className:'app'},
+
+    // TOPBAR
+    e('div', {className:'topbar'},
+      e('div', {className:'logo'}, '⬡ STATS'),
+      e('div', {className:'topbar-fields'},
+        e('input', {className:'inp-player', type:'text', placeholder:'Nom du joueur', value:playerName, onChange:ev=>setPlayerName(ev.target.value), autoComplete:'off', autoCorrect:'off', autoCapitalize:'words'}),
+        e('input', {className:'inp-teams',  type:'text', placeholder:'Équipe A – Équipe B', value:matchTeams, onChange:ev=>setMatchTeams(ev.target.value), autoComplete:'off', autoCorrect:'off'}),
+        e('input', {className:'inp-date',   type:'date', value:matchDate, onChange:ev=>setMatchDate(ev.target.value)}),
+        e('input', {className:'inp-score',  type:'text', placeholder:'Score final', value:matchScore, onChange:ev=>setMatchScore(ev.target.value), autoComplete:'off', autoCorrect:'off'}),
+      ),
+      e('div', {className:'timer-zone'},
+        e('select', {className:'t-select', value:currentQ, onChange:ev=>handleQuarterChange(ev.target.value)},
+          ['QT1','QT2','QT3','QT4','OT'].map(q => e('option',{key:q,value:q}, q==='OT'?'Prolong.':'QT '+q.slice(2)))
+        ),
+        e('div', {className:'t-digits'}, fmt(timerSec)),
+        e('button', {className:'t-btn t-btn-play'+(timerRunning?' running':''), onClick:toggleTimer}, timerRunning ? '⏸ PAUSE' : '▶ START'),
+        e('button', {className:'t-btn t-btn-rst', onClick:resetTimer}, '↺'),
+      )
+    ),
+
+    // SCORE STRIP
+    e('div', {className:'score-strip'},
+      e('div', {className:'strip-left'},
+        e('div', null,
+          e('div', {className:'strip-lbl'}, 'Total points'),
+          e('div', {className:'strip-pts'}, totalPts),
+        ),
+        e('div', {className:'strip-name'}, playerName||'Joueur'),
+      ),
+      e('div', {className:'strip-minis'},
+        [['s-reb',reb,'Reb'],['s-ast',c.assists,'Pss'],['s-int',c.interceptions,'Int'],['s-ctr',c.blocks,'Ctr'],['s-bp',c.turnovers,'BP'],['s-f',c.fouls,'Fts']]
+          .map(([id,val,lbl]) => e('div',{key:id,className:'strip-mini'}, e('div',{className:'sm-v'},val), e('div',{className:'sm-l'},lbl)))
+      )
+    ),
+
+    // SCREENS
+    e('div', {className:'screens'},
+
+      // HOME
+      e('div', {className:`screen screen-${homeState}`},
+        e('div', {className:'home-grid'},
+          CAT_ORDER.map(cat => {
+            const cfg=CATS[cat]; const color=COLORS[cat];
+            return e('div', {
+              key:cat,
+              className:'tile',
+              onClick: () => openCat(cat),
+              style:{cursor:'pointer'}
+            },
+              e('div', {className:'tile-stripe', style:{background:color}}),
+              e('div', {className:'tile-icon', style:{background:`color-mix(in srgb, ${color} 15%, transparent)`, color}},
+                e(Icon, {name:cfg.icon, size:26})
+              ),
+              e('div', {className:'tile-lbl', style:{color}}, cfg.label === 'Lancers Francs' ? 'L. Francs' : cfg.label.split(' ')[0] === 'Passes' ? 'Passes' : cfg.label.split(' ')[0]),
+              e('div', {className:'tile-val'}, tileVals[cat]),
+              e('div', {className:'tile-sub'}, tileSubs[cat]),
+            );
+          })
+        )
+      ),
+
+      // DETAIL
+      e('div', {className:`screen screen-${screen==='detail'?'active':'hidden'}`},
+        e('div', {className:'detail-nav'},
+          e('button', {className:'nav-back', onClick:goHome},
+            e(Icon,{name:'back',size:14}), 'Retour'
+          ),
+          e('div', {className:'nav-cats'},
+            CAT_ORDER.map(cat => {
+              const isActive = cat===activeCat;
+              const color = COLORS[cat];
+              return e('button', {
+                key:cat,
+                className:'nav-cat'+(isActive?' nav-cat-active':''),
+                style: isActive ? {background:`color-mix(in srgb, ${color} 12%, transparent)`, color, '--nc':color} : {},
+                onClick: ()=>switchCat(cat)
+              },
+                isActive && e('span',{style:{position:'absolute',bottom:0,left:0,right:0,height:2,background:color,borderRadius:1}}),
+                e(Icon,{name:CATS[cat].icon,size:13}),
+                {two:'2pts',three:'3pts',ft:'LF',reb:'Reb',ast:'Pss',def:'Déf',misc:'Div'}[cat]
+              );
+            })
+          )
+        ),
+        activeCat && e(DetailBody, {cat:activeCat, counters:c, color:COLORS[activeCat], increment, decrement, fmt})
+      )
+    ),
+
+    // BOTTOMBAR
+    e('div', {className:'bottombar'},
+      e('button', {className:'btn-reset', onClick:handleReset}, '↺ Réinitialiser'),
+      e('button', {className:'btn-exp', onClick:handleCopy},       e(Icon,{name:'copy',size:13}), 'Copier'),
+      e('button', {className:'btn-exp', onClick:()=>dlFile(buildCsv(),'text/csv;charset=utf-8;','stats_match_'+(slugify(playerName)||'joueur')+'.csv')}, e(Icon,{name:'dl',size:13}), 'CSV'),
+      e('button', {className:'btn-exp', onClick:()=>dlFile(buildHtml(),'text/html;charset=utf-8;','stats_match_'+(slugify(playerName)||'joueur')+'.html')}, e(Icon,{name:'file',size:13}), 'Tableau HTML'),
+      e('div', {className:'hint-bar'}, 'Utile ? ', e('a',{href:'https://ko-fi.com/fredericdupuy',target:'_blank',rel:'noopener'},'♥ Don'), ' · F. Dupuy (Claude)')
+    )
+  );
+}
+
+// ────────────────────────────────────────────────
+//  COMPOSANT VUE DÉTAIL
+// ────────────────────────────────────────────────
+function DetailBody({ cat, counters:c, color, increment, decrement, fmt }) {
+  const cfg = CATS[cat];
+
+  let scoreVal, gaugeContent = null;
+  if (cfg.shooting) {
+    const made = c[cfg.madeKey], att = c[cfg.attKey];
+    scoreVal = (made * cfg.ptsX) + ' pts';
+    const p = att ? (made/att*100) : 0;
+    const gColor = p<30?'#ef4444':p<60?'#facc15':'#22c55e';
+    gaugeContent = e('div',{className:'gauge-wrap'},
+      e('div',{className:'gauge-bar'}, e('div',{className:'gauge-fill',style:{width:(att?p.toFixed(1):0)+'%',background:gColor}})),
+      e('div',{className:'gauge-txt'}, att ? `${made}/${att} – ${Math.round(p)}%  (${made*cfg.ptsX} pts)` : '0/0 – 0%')
+    );
+  } else {
+    scoreVal = cfg.scoreCalc(c);
+  }
+
+  return e('div', {className:'detail-body'},
+    e('div', {className:'det-header'},
+      e('div', {className:'det-title', style:{color}}, cfg.label),
+      e('div', {className:'det-score'}, scoreVal),
+    ),
+    e('div', {className:'action-grid'},
+      cfg.shooting
+        ? [
+            e(ActionRow, {key:'att', tag:'TNT', lbl:cfg.attLbl,  iconName:'plus',  isPlus:false, color, val:null,       onPlus:()=>increment(cfg.attKey),  onMinus:()=>decrement(cfg.attKey)}),
+            e(ActionRow, {key:'mad', tag:'RÉU', lbl:cfg.madeLbl, iconName:'check', isPlus:true,  color, val:null,       onPlus:()=>increment(cfg.madeKey), onMinus:()=>decrement(cfg.madeKey)}),
+            gaugeContent
+          ]
+        : cfg.rows.map(row =>
+            e(ActionRow, {key:row.key, tag:'', lbl:row.lbl, iconName:row.icon, isPlus:false, color, val:c[row.key], onPlus:()=>increment(row.key), onMinus:()=>decrement(row.key)})
+          )
+    )
+  );
+}
+
+function ActionRow({ tag, lbl, iconName, isPlus, color, val, onPlus, onMinus }) {
+  const plusStyle = isPlus
+    ? {background:`color-mix(in srgb, ${color} 14%, var(--surf2))`, borderColor:`color-mix(in srgb, ${color} 35%, transparent)`}
+    : {};
+  return e('div', {className:'action-row'},
+    tag && e('div', {className:'action-tag'}, tag),
+    e('button', {className:'big-btn', style:plusStyle, onClick:onPlus},
+      e(Icon, {name:iconName, size:18}),
+      e('span', null, lbl),
+      val !== null && e('span', {className:'big-btn-val'}, val)
+    ),
+    e('button', {className:'minus-btn', onClick:onMinus}, '−')
+  );
+}
+
+// ────────────────────────────────────────────────
+//  MOUNT
+// ────────────────────────────────────────────────
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(e(App));
+
+// Service worker PWA
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
