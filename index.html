@@ -380,6 +380,17 @@
     .hint-bar { margin-left: auto; font-size: .64rem; color: var(--muted); text-align: right; }
     .save-badge { color: #93c5fd; }
     .hint-bar a { color: var(--acc); text-decoration: none; }
+
+    /* ── SMARTPHONE PAYSAGE : autoriser la rotation sans modifier l'esprit tablette ── */
+    @media screen and (orientation: landscape) and (max-width: 950px) {
+      html, body, #root { width: 100%; height: 100%; }
+      .topbar { flex-wrap: wrap; }
+      .topbar-fields { flex-wrap: wrap; }
+      .timer-zone { margin-left: 0; }
+      .home-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+      .tile { min-height: 82px; }
+    }
+
   </style>
 </head>
 <body>
